@@ -79,7 +79,7 @@ npm install -g @hilomemory/local
 Or build from source:
 
 ```bash
-git clone https://github.com/hilomemory/hilo-local.git
+git clone https://github.com/semillabiz/hilo-local.git
 cd hilo-local
 npm install
 npm run build
