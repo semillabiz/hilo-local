@@ -197,7 +197,10 @@ hilo import-engram /path/to/observations.db
 ### Cloud Sync (Optional)
 
 ```bash
-# Authenticate via browser using OAuth 2.0 PKCE
+# Create a 12-word seed-phrase account on Hilo Web and link this terminal via OAuth
+hilo cloud register
+
+# Or authenticate an existing account via browser using OAuth 2.0 PKCE
 hilo cloud login
 
 # Headless / remote terminal login

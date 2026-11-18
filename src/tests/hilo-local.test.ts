@@ -9,7 +9,7 @@ import { formatContextBundle } from '../core/context.js';
 import { createHiloMcpServer } from '../core/mcp.js';
 import { SqliteHiloStorage } from '../storage/sqlite.js';
 import { exportToDirectory, importFromDirectory, importFromEngram } from '../sync/git-sync.js';
-import { pullFromCloud, pushToCloud, loginWithOAuth, ensureValidToken } from '../sync/cloud-sync.js';
+import { pullFromCloud, pushToCloud, loginWithOAuth, registerWithHiloWeb, ensureValidToken } from '../sync/cloud-sync.js';
 import { applyMcpConfig, detectMcpTargets } from '../setup/setup.js';
 import { buildTuiItems, renderTuiFrame } from '../tui/tui.js';
 
@@ -337,6 +337,23 @@ test('OAuth PKCE loopback login and refresh_token renewal', async () => {
     assert.equal(refreshCount, 1);
     assert.equal(renewed.token, 'tok_refreshed');
     assert.equal(renewed.refreshToken, 'ref_next');
+
+    const visited: string[] = [];
+    const regConfig = await registerWithHiloWeb({
+      origin,
+      noOpen: true,
+      onAuthorizeUrl: (urlStr) => {
+        visited.push(urlStr);
+        if (urlStr.includes('/oauth/authorize')) {
+          const u = new URL(urlStr);
+          const redirectUri = u.searchParams.get('redirect_uri')!;
+          const state = u.searchParams.get('state')!;
+          void fetch(`${redirectUri}?code=auth_code_ok&state=${encodeURIComponent(state)}`);
+        }
+      },
+    });
+    assert.ok(visited.some((u) => u.endsWith('/registro')));
+    assert.equal(regConfig.token, 'tok_initial');
   } finally {
     if (prevConfigPath === undefined) delete process.env.HILO_CLOUD_CONFIG_PATH;
     else process.env.HILO_CLOUD_CONFIG_PATH = prevConfigPath;

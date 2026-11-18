@@ -314,6 +314,33 @@ export async function loginWithOAuth(options: OAuthLoginOptions = {}): Promise<C
   }
 }
 
+/**
+ * Guides the user through creating a seed-phrase (12-word) account on Hilo Web
+ * and immediately links this local terminal via OAuth 2.0 PKCE.
+ */
+export async function registerWithHiloWeb(options: OAuthLoginOptions = {}): Promise<CloudConfig> {
+  const origin = normalizeCloudOrigin(options.origin || DEFAULT_CLOUD_ORIGIN);
+  const registerUrl = `${origin}/registro`;
+
+  if (options.onAuthorizeUrl) {
+    options.onAuthorizeUrl(registerUrl);
+  } else {
+    console.log(`1. Creá tu cuenta con frase semilla de 12 palabras en Hilo Web:\n\n   ${registerUrl}\n`);
+    console.log('   Guardá tus 12 palabras y activá el segundo factor para habilitar conexiones.\n');
+    if (!options.noOpen) {
+      openBrowser(registerUrl);
+    }
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    try {
+      await rl.question('2. Cuando hayas creado tu cuenta, presioná Enter para vincular esta terminal por OAuth...');
+    } finally {
+      rl.close();
+    }
+  }
+
+  return loginWithOAuth(options);
+}
+
 function serializeSkillMarkdown(name: string, description: string, content: string): string {
   return `---\nname: ${JSON.stringify(name)}\ndescription: ${JSON.stringify(description)}\n---\n\n${content}`;
 }

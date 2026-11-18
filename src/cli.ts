@@ -12,6 +12,7 @@ import {
   loginWithOAuth,
   pullFromCloud,
   pushToCloud,
+  registerWithHiloWeb,
   saveCloudConfig,
 } from './sync/cloud-sync.js';
 import { runSetupWizard } from './setup/setup.js';
@@ -54,6 +55,7 @@ Uso:
   hilo export [dir]                        Exporta memorias/skills/docs a Markdown (default: .hilo)
   hilo import [dir]                        Importa desde Markdown a SQLite (default: .hilo)
   hilo import-engram [dbPath]              Importa observaciones desde ~/.engram/engram.db
+  hilo cloud register [--origin <url>] [--manual] [--no-open] Crea cuenta con frase semilla en Hilo Web y la vincula
   hilo cloud login [--origin <url>] [--manual] [--no-open]   Inicia sesión con OAuth en navegador (o --token <token>)
   hilo cloud status                        Muestra la conexión cloud configurada
   hilo cloud logout                        Elimina las credenciales locales
@@ -201,6 +203,17 @@ async function main(): Promise<void> {
 
     if (command === 'cloud') {
       const sub = positional[0];
+      if (sub === 'register') {
+        const origin = typeof flags.origin === 'string' ? flags.origin : DEFAULT_CLOUD_ORIGIN;
+        const cfg = await registerWithHiloWeb({
+          origin,
+          scope: flags.scope === 'read' ? 'read' : 'write',
+          manual: flags.manual === true,
+          noOpen: flags['no-open'] === true,
+        });
+        console.log(`Cuenta creada y vinculada a ${cfg.origin} (${cfg.scope ?? 'write'}).`);
+        return;
+      }
       if (sub === 'login') {
         const token = typeof flags.token === 'string' ? flags.token : '';
         const origin = typeof flags.origin === 'string' ? flags.origin : DEFAULT_CLOUD_ORIGIN;
