@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -10,6 +10,8 @@ import { createHiloMcpServer } from '../core/mcp.js';
 import { SqliteHiloStorage } from '../storage/sqlite.js';
 import { exportToDirectory, importFromDirectory, importFromEngram } from '../sync/git-sync.js';
 import { pullFromCloud, pushToCloud, loginWithOAuth, ensureValidToken } from '../sync/cloud-sync.js';
+import { applyMcpConfig, detectMcpTargets } from '../setup/setup.js';
+import { buildTuiItems, renderTuiFrame } from '../tui/tui.js';
 
 test('SqliteHiloStorage: memories, FTS5 search, skills, docs, history and context bundle', () => {
   const storage = new SqliteHiloStorage(':memory:');
@@ -252,6 +254,7 @@ test('Cloud sync push & pull against /api/sync contract', async () => {
   } finally {
     localA.close();
     localB.close();
+    server.closeAllConnections();
     server.close();
   }
 });
@@ -337,7 +340,75 @@ test('OAuth PKCE loopback login and refresh_token renewal', async () => {
   } finally {
     if (prevConfigPath === undefined) delete process.env.HILO_CLOUD_CONFIG_PATH;
     else process.env.HILO_CLOUD_CONFIG_PATH = prevConfigPath;
+    oauthServer.closeAllConnections();
     oauthServer.close();
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('Setup wizard detects MCP clients and injects hilo-local without clobbering existing servers', () => {
+  const fakeHome = mkdtempSync(join(tmpdir(), 'hilo-setup-test-'));
+  try {
+    mkdirSync(join(fakeHome, '.cursor'), { recursive: true });
+    writeFileSync(
+      join(fakeHome, '.cursor', 'mcp.json'),
+      JSON.stringify({ mcpServers: { other: { command: 'npx', args: ['other'] } } }, null, 2),
+      'utf8',
+    );
+
+    const targets = detectMcpTargets(fakeHome);
+    const cursor = targets.find((t) => t.id === 'cursor');
+    assert.ok(cursor && cursor.detected);
+
+    const res1 = applyMcpConfig(cursor);
+    assert.equal(res1.status, 'configured');
+
+    const updated = JSON.parse(readFileSync(cursor.configPath, 'utf8')) as {
+      mcpServers: Record<string, unknown>;
+    };
+    assert.ok(updated.mcpServers.other);
+    assert.deepEqual(updated.mcpServers['hilo-local'], { command: 'hilo', args: ['mcp'] });
+
+    const res2 = applyMcpConfig(cursor);
+    assert.equal(res2.status, 'already-configured');
+  } finally {
+    rmSync(fakeHome, { recursive: true, force: true });
+  }
+});
+
+test('TUI builds items across tabs and renders split-pane frame', () => {
+  const storage = new SqliteHiloStorage(':memory:');
+  try {
+    storage.saveMemory({
+      name: 'tui-mem',
+      type: 'project',
+      tema: 'ui',
+      summary: 'Resumen TUI',
+      content: 'Contenido detallado en TUI.',
+    });
+    storage.saveSkill({
+      name: 'tui-skill',
+      description: 'Skill de prueba',
+      content: 'Pasos de la skill.',
+    });
+
+    const memItems = buildTuiItems(storage, 'memories', 'Resumen');
+    assert.equal(memItems.length, 1);
+    assert.equal(memItems[0].title, 'tui-mem');
+
+    const skillItems = buildTuiItems(storage, 'skills', '');
+    assert.equal(skillItems.length, 1);
+
+    const frame = renderTuiFrame(
+      storage,
+      { tab: 'memories', selectedIndex: 0, searchMode: false, query: '', statusMessage: '' },
+      90,
+      20,
+    );
+    assert.match(frame, /Hilo Local/);
+    assert.match(frame, /tui-mem/);
+    assert.match(frame, /Contenido detallado en TUI/);
+  } finally {
+    storage.close();
   }
 });

@@ -14,6 +14,8 @@ import {
   pushToCloud,
   saveCloudConfig,
 } from './sync/cloud-sync.js';
+import { runSetupWizard } from './setup/setup.js';
+import { runTui } from './tui/tui.js';
 
 function parseFlags(args: string[]): { positional: string[]; flags: Record<string, string | boolean> } {
   const positional: string[] = [];
@@ -40,6 +42,8 @@ function printHelp(): void {
   console.log(`hilo-local — Memoria persistente, skills y docs local-first (MCP + SQLite FTS5 + Git)
 
 Uso:
+  hilo tui                                 Abre la interfaz interactiva en terminal (TUI)
+  hilo setup [--all] [--dry-run]           Configura el MCP en Claude Code, Cursor, Antigravity, etc.
   hilo mcp                                 Inicia el servidor MCP por stdio
   hilo context [--tema <tema>]             Muestra el contexto cargado del perfil activo
   hilo save <nombre> --type <tipo> --summary <resumen> --content <texto> [--tema <tema>]
@@ -69,7 +73,22 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === 'setup') {
+    const { flags } = parseFlags(rest);
+    await runSetupWizard({ all: flags.all === true, dryRun: flags['dry-run'] === true });
+    return;
+  }
+
   const storage = new SqliteHiloStorage();
+
+  if (command === 'tui') {
+    try {
+      await runTui(storage);
+    } finally {
+      storage.close();
+    }
+    return;
+  }
 
   if (command === 'mcp') {
     const server = createHiloMcpServer(storage);

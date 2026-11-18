@@ -97,6 +97,18 @@ hilo save code-style \
 
 ### 3. Connect your AI agent via MCP
 
+Run the interactive setup wizard to auto-detect and configure Claude Code, Cursor, Antigravity, Windsurf, or OpenCode:
+
+```bash
+hilo setup
+```
+
+Or launch the interactive terminal UI (TUI) anytime:
+
+```bash
+hilo tui
+```
+
 ---
 
 ## MCP Setup
